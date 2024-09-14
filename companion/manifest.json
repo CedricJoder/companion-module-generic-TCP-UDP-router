@@ -1,26 +1,26 @@
 {
-	"id": "your-module-name",
-	"name": "your-module-name",
-	"shortname": "module-shortname",
-	"description": "A short one line description of your module",
-	"version": "0.0.0",
+	"id": "generic-TCP-UDP-router",
+	"name": "generic-TCP-UDP-router",
+	"shortname": "TCP-UDP-router",
+	"description": "A helper module to share ip messages between devices",
+	"version": "0.1.0",
 	"license": "MIT",
-	"repository": "git+https://github.com/bitfocus/companion-module-your-module-name.git",
-	"bugs": "https://github.com/bitfocus/companion-module-your-module-name/issues",
+	"repository": "git+https://github.com/bitfocus/generic-TCP-UDP-router.git",
+	"bugs": "https://github.com/bitfocus/generic-TCP-UDP-router/issues",
 	"maintainers": [
 		{
-			"name": "Your name",
-			"email": "Your email"
+			"name": "CedricJoder",
+			"email": "cedric.joder@gmail.com"
 		}
 	],
 	"runtime": {
 		"type": "node18",
 		"api": "nodejs-ipc",
 		"apiVersion": "0.0.0",
-		"entrypoint": "../main.js"
+		"entrypoint": "../index.js"
 	},
 	"legacyIds": [],
-	"manufacturer": "Your company",
-	"products": ["Your product"],
-	"keywords": []
+	"manufacturer": "generic",
+	"products": [ "TCP-UDP-router" ],
+	"keywords": [ "generic", "router", "TCP", "UDP" ]
 }
