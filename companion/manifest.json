@@ -1,7 +1,7 @@
 {
-	"id": "generic-TCP-UDP-router",
-	"name": "generic-TCP-UDP-router",
-	"shortname": "TCP-UDP-router",
+	"id": "IP Messages Dispatcher",
+	"name": "IP Messages Dispatcher",
+	"shortname": "IP Dispatcher",
 	"description": "A helper module to share ip messages between devices",
 	"version": "0.1.0",
 	"license": "MIT",
@@ -21,6 +21,6 @@
 	},
 	"legacyIds": [],
 	"manufacturer": "generic",
-	"products": [ "TCP-UDP-router" ],
-	"keywords": [ "generic", "router", "TCP", "UDP" ]
+	"products": [ "IP Messages Dispatcher" ],
+	"keywords": [ "generic", "router", "TCP", "UDP", "Dispatcher" ]
 }

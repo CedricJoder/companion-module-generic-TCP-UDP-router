@@ -30,7 +30,9 @@ module.exports = function (self) {
 				}
 			],
 			callback: async (action) => {
-				self.connections[action.options.device].write(action.options.msg)
+				// parse escape character
+				let msg = JSON.parse('{ "msg": "' + action.options.msg + '"}').msg
+				self.connections[action.options.device].write(msg)
 			},
 		},
 

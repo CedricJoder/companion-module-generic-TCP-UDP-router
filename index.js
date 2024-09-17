@@ -28,6 +28,7 @@ class TcpServerInstance extends net.Server {
 		super()
 		let self = this.module = ModuleInstance
 		let port = self.config['connection' + index + 'port']
+		this.index = index
 		this.clients = []
 		this.IP = []
 		this.Port = []
@@ -45,14 +46,18 @@ class TcpServerInstance extends net.Server {
 			
 			socket.on('err', (err) => {
 				this.emit('err', err)
-		//		self.updateStatus(InstanceStatus.Disconnected)
-				self.log('error', 'Error in connection ' + cid + ' (' + self.config['connection' + index + 'name'] + ') : ' + err)
+				this.isListening = this.clients.length > 0
+				this.IP.splice(this.clients.indexOf(socket.remoteAddress), 1)
+				this.Port.splice(this.clients.indexOf(socket.remotePort), 1)
+				self.updateVariables(index)
+				self.log('error', 'Error in connection #' + index + ' (' + self.config['connection' + index + 'name'] + ') : ' + cid + ' : ' + err)
 			})
 
 			socket.on('close', () => {
 				this.clients.splice(this.clients.indexOf(socket), 1)
 				this.isListening = this.clients.length > 0
 				this.IP.splice(this.clients.indexOf(socket.remoteAddress), 1)
+				this.Port.splice(this.clients.indexOf(socket.remotePort),1)
 				self.updateVariables(index)
 			})
 			
@@ -62,7 +67,7 @@ class TcpServerInstance extends net.Server {
 				if (self.config['connection' + index + 'hex']) {
 					data = toHex(data)
 				}
-				self.log('debug', 'Received from ' + cid + ' : ' + data)
+				self.log('debug', 'Connection #' + index + ' (' + self.config['connection' + index + 'name'] + ' : Received from ' + cid + ' : ' + data)
 			})
 		})
 
@@ -80,13 +85,10 @@ class TcpServerInstance extends net.Server {
 
 
 	write(data) {
+		let printData = this.module.config['connection' + this.index + 'hex'] ? toHex(data) : data
 		this.clients.forEach((client) => {
 			client.write(data)
-
-	//		if (this.config['connection' + key + 'hex']) {
-	//			data = toHex(data)
-	//		}
-			this.module.log('debug', 'writing data to ' + client.remoteAddress + ':' + client.remotePort + ' : ' + data)
+			this.module.log('debug', 'writing data to ' + client.remoteAddress + ':' + client.remotePort + ' : ' + printData)
 		})
 	}
 
@@ -94,12 +96,24 @@ class TcpServerInstance extends net.Server {
 }
 
 
-class TcpUdpRouterInstance extends InstanceBase {
+class IpMessageDispatcherInstance extends InstanceBase {
 	constructor(internal) {
 		super(internal)
 		this.connections = []
 		this.routing = []
 	}
+
+
+	populateDefaultConfig(start) {
+		for (let i = start ?? 0; i < this.config.connectionNumber; i++) {
+			this.config['connection' + i + 'protocol'] ??= 'tcp'
+			this.config['connection' + i + 'ip'] ??= ''
+			this.config['connection' + i + 'port'] ??= ''
+			this.config['connection' + i + 'routing'] ??= 'all'
+		}
+    }
+
+
 
 	/**
 	 * Initialize the module.
@@ -113,9 +127,11 @@ class TcpUdpRouterInstance extends InstanceBase {
 
 		this.updateStatus(InstanceStatus.Ok)
 
-	//	this.configUpdated(config)
-
 		this.config = config
+
+		// populate default config
+		this.populateDefaultConfig()
+
 		this.parseRoutingArray(config)
 
 		this.updateActions() // export actions
@@ -137,16 +153,14 @@ class TcpUdpRouterInstance extends InstanceBase {
 		this.log('debug', 'destroy')
 	}
 
+
 	parseRoutingArray(config) {
-
-
-
 		let conNum = config.connectionNumber
 
 		// Parsing routing array
 		for (let i = 0; i < conNum; i++) {
 
-			let routingArray = new Set(config['connection' + i + 'routing'].split(','))
+			let routingArray = new Set(config['connection' + i + 'routing']?.split(','))
 
 			if (routingArray.has('all')) {
 				for (let j = 0; j < conNum; j++) {
@@ -175,6 +189,10 @@ class TcpUdpRouterInstance extends InstanceBase {
 		// Parsing routing array
 		this.parseRoutingArray(config)
 
+		// populate default config if connections number change
+		if (config.connectionNumber > this.config.connectionNumber) {
+			this.populateDefaultConfig(this.config.connectionNumber)
+        }
 		
 
 		// reconnecting 
@@ -216,7 +234,7 @@ class TcpUdpRouterInstance extends InstanceBase {
 	init_connection(id) {
 		const self = this
 
-//		this.updateStatus(InstanceStatus.Connecting)
+		this.updateStatus(InstanceStatus.Connecting)
 
 		for (let i = (id ?? 0); i <= (id ?? this.config.connectionNumber - 1); i++) {
 			if (this.connections[i]) {
@@ -253,16 +271,14 @@ class TcpUdpRouterInstance extends InstanceBase {
 						})
 						
 						udp.on('message', (data, rinfo) => {
-							self.route(data, i)
-							if (self.config['connection' + i + 'hex']) {
-								data = toHex(data)
-							}
+							let printData = self.config['connection' + i + 'hex'] ? toHex(data) : data
+							
 							if (!ip) {
 								this.IP.push(rinfo.address)
 								this.Port.push(rinfo.port)
                             }
-							self.log('debug', 'Received message from connection #' + i + ' (' + this.config['connection' + i + 'name'] + ') : ' + rinfo.address + ':' + rinfo.port + ' : ' + data)
-
+							self.log('debug', 'Received message from connection #' + i + ' (' + this.config['connection' + i + 'name'] + ') : ' + rinfo.address + ':' + rinfo.port + ' : ' + printData)
+							self.route(data, i)
 						})
 
 						udp.on('close', () => {
@@ -313,12 +329,9 @@ class TcpUdpRouterInstance extends InstanceBase {
 							})
 
 							socket.on('data', (data) => {
+								let printData = self.config['connection' + i + 'hex'] ? toHex(data) : data
+								self.log('debug', 'Received message from connection #' + i + ' (' + self.config['connection' + i + 'name'] + ') : ' + printData)
 								self.route(data, i)
-								if (self.config['connection' + i + 'hex']) {
-									data = toHex(data)
-                                }
-								self.log('debug', 'Received message from connection #' + i + ' (' + self.config['connection' + i + 'name'] + ') : ' + data)
-
 								
 							})
 
@@ -330,7 +343,7 @@ class TcpUdpRouterInstance extends InstanceBase {
 									socket.connect(port,ip)
                                 }, 5000)
                             })
-
+							
 							socket.connect(port, ip)
 
 						} else {
@@ -338,14 +351,9 @@ class TcpUdpRouterInstance extends InstanceBase {
 							let server = this.connections[i] = new TcpServerInstance(this, i)
 
 							server.on('data', (data) => {
+								let printData = self.config['connection' + i + 'hex'] ? toHex(data) : data
+								this.log('debug', 'Received from  connection #' + i + ' (' + self.config['connection' + i + 'name'] + ') :' + printData)
 								self.route(data, i)
-
-								if (self.config['connection' + i + 'hex']) {
-									data = toHex(data)
-								}
-
-								this.log('debug', 'Received from  connection #' + i + ' (' + self.config['connection' + i + 'name'] + ') :' + data)
-
 							})
 						}
 
@@ -384,7 +392,7 @@ class TcpUdpRouterInstance extends InstanceBase {
 				width: 12,
 			}]
 
-		for (let i = 0; i < this.config.connectionNumber; i++) {
+		for (let i = 0; i < (this.config?.connectionNumber ? this.config.connectionNumber : 0); i++) {
 			configFields.push(
 				{
 					type: 'static-text',
@@ -405,7 +413,6 @@ class TcpUdpRouterInstance extends InstanceBase {
 					id: 'connection' + i + 'protocol',
 					label: 'Protocol',
 					width: 3,
-					default: 'tcp',
 					choices: [{
 							id: 'tcp',
 							label: 'TCP',
@@ -413,7 +420,8 @@ class TcpUdpRouterInstance extends InstanceBase {
 						{
 							id: 'udp',
 							label: 'UDP'
-					}]
+						}],
+					default: 'tcp',
 				},
 				{
 					type: 'textinput',
@@ -484,4 +492,4 @@ class TcpUdpRouterInstance extends InstanceBase {
     }
 }
 
-runEntrypoint(TcpUdpRouterInstance, UpgradeScripts)
+runEntrypoint(IpMessageDispatcherInstance, UpgradeScripts)
